@@ -6,6 +6,7 @@ and writes the result to README.md.
 import os
 import json
 import sys
+import time
 import urllib.request
 import urllib.error
 
@@ -86,15 +87,21 @@ def call_gemini(token: str, prompt: str) -> str:
         method="POST",
     )
 
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode("utf-8", errors="replace")
-        print(f"HTTP {exc.code} from Gemini API: {error_body}", file=sys.stderr)
-        sys.exit(1)
-
-    return body["candidates"][0]["content"]["parts"][0]["text"]
+    max_retries = 5
+    for attempt in range(1, max_retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+            return body["candidates"][0]["content"]["parts"][0]["text"]
+        except urllib.error.HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")
+            if exc.code == 429 and attempt < max_retries:
+                wait = 30 * attempt   # 30s, 60s, 90s, 120s
+                print(f"Rate limited (attempt {attempt}/{max_retries}). Waiting {wait}s...", file=sys.stderr)
+                time.sleep(wait)
+            else:
+                print(f"HTTP {exc.code} from Gemini API: {error_body}", file=sys.stderr)
+                sys.exit(1)
 
 
 def main() -> None:
