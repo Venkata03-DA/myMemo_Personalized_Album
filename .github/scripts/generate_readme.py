@@ -25,8 +25,8 @@ FILES_TO_READ = [
     "src/main/resources/static/index.html",
 ]
 
-API_URL = "https://models.inference.ai.azure.com/chat/completions"
-MODEL   = "gpt-4o-mini"
+API_URL = "https://api.groq.com/openai/v1/chat/completions"
+MODEL   = "llama3-70b-8192"
 
 
 def read_file_safe(path: str) -> str | None:
@@ -106,9 +106,9 @@ def call_github_models(token: str, prompt: str) -> str:
 
 
 def main() -> None:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = os.environ.get("GROQ_API_KEY")
     if not token:
-        print("GITHUB_TOKEN environment variable is not set.", file=sys.stderr)
+        print("GROQ_API_KEY environment variable is not set.", file=sys.stderr)
         sys.exit(1)
 
     print("Reading project files...")
