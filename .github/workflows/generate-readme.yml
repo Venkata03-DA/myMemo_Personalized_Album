@@ -7,6 +7,8 @@ on:
     paths:
       - 'src/**'
       - 'pom.xml'
+      - '.github/scripts/**'
+      - '.github/workflows/generate-readme.yml'
 
 # Cancel duplicate runs — prevents queued API calls on rapid pushes
 concurrency:
