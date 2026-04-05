@@ -1,5 +1,5 @@
 """
-Reads key project files, builds a prompt, calls GitHub Models API,
+Reads key project files, builds a prompt, calls Google Gemini API,
 and writes the result to README.md.
 """
 
@@ -25,8 +25,7 @@ FILES_TO_READ = [
     "src/main/resources/static/index.html",
 ]
 
-API_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL   = "llama3-70b-8192"
+MODEL   = "gemini-2.0-flash"
 
 
 def read_file_safe(path: str) -> str | None:
@@ -73,24 +72,17 @@ Rules:
 """
 
 
-def call_github_models(token: str, prompt: str) -> str:
+def call_gemini(token: str, prompt: str) -> str:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={token}"
     payload = json.dumps({
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a professional technical writer."},
-            {"role": "user",   "content": prompt},
-        ],
-        "temperature": 0.3,
-        "max_tokens": 2048,
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
     }).encode("utf-8")
 
     req = urllib.request.Request(
-        API_URL,
+        url,
         data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        },
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
 
@@ -99,23 +91,23 @@ def call_github_models(token: str, prompt: str) -> str:
             body = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
-        print(f"HTTP {exc.code} from GitHub Models API: {error_body}", file=sys.stderr)
+        print(f"HTTP {exc.code} from Gemini API: {error_body}", file=sys.stderr)
         sys.exit(1)
 
-    return body["choices"][0]["message"]["content"]
+    return body["candidates"][0]["content"]["parts"][0]["text"]
 
 
 def main() -> None:
-    token = os.environ.get("GROQ_API_KEY")
+    token = os.environ.get("GEMINI_API_KEY")
     if not token:
-        print("GROQ_API_KEY environment variable is not set.", file=sys.stderr)
+        print("GEMINI_API_KEY environment variable is not set.", file=sys.stderr)
         sys.exit(1)
 
     print("Reading project files...")
     context = build_context()
 
-    print("Calling GitHub Models API...")
-    readme_content = call_github_models(token, build_prompt(context))
+    print("Calling Gemini API...")
+    readme_content = call_gemini(token, build_prompt(context))
 
     with open("README.md", "w", encoding="utf-8") as fh:
         fh.write(readme_content.strip() + "\n")

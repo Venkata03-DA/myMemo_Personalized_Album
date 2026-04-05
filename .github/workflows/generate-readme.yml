@@ -24,9 +24,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Generate README via Groq API
+      - name: Generate README via Gemini API
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python .github/scripts/generate_readme.py
 
       - name: Push branch and open PR
