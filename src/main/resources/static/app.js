@@ -54,6 +54,25 @@ function createAlbumCard(album) {
     window.location.href = 'Album.html?id=' + album.id;
   });
 
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.className = 'delete-btn';
+  deleteBtn.addEventListener('click', async function (e) {
+    e.stopPropagation();
+    if (!confirm('Delete album "' + album.title + '"? This cannot be undone.')) return;
+    try {
+      const res = await fetch(API_BASE + '/' + album.id, { method: 'DELETE' });
+      if (res.ok) {
+        await loadAlbums();
+      } else {
+        alert('Failed to delete album.');
+      }
+    } catch (err) {
+      console.error('Error deleting album:', err);
+    }
+  });
+  body.appendChild(deleteBtn);
+
   return card;
 }
 
@@ -63,12 +82,23 @@ document.getElementById('album-form').addEventListener('submit', async function 
   event.preventDefault();
 
   const title = document.getElementById('title').value.trim();
-  const coverImageUrl = document.getElementById('coverImageUrl').value.trim();
   const eventDate = document.getElementById('eventDate').value;
+  const fileInput = document.getElementById('coverImage');
+  const file = fileInput.files[0];
+
+  let coverImageUrl = null;
+
+  if (file) {
+    coverImageUrl = await new Promise(function (resolve) {
+      const reader = new FileReader();
+      reader.onload = function (e) { resolve(e.target.result); };
+      reader.readAsDataURL(file);
+    });
+  }
 
   const payload = {
     title: title,
-    coverImageUrl: coverImageUrl || null,
+    coverImageUrl: coverImageUrl,
     eventDate: eventDate || null
   };
 

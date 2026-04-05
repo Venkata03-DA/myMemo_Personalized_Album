@@ -27,4 +27,11 @@ public class AlbumService {
         return albumRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Album not found with id: " + id));
     }
+
+    public void deleteAlbum(Long id) {
+        if (!albumRepository.existsById(id)) {
+            throw new RuntimeException("Album not found with id: " + id);
+        }
+        albumRepository.deleteById(id);
+    }
 }

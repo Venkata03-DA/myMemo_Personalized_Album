@@ -28,4 +28,13 @@ public class MemoryService {
     public List<Memory> getMemoriesByAlbumId(Long albumId) {
         return memoryRepository.findByAlbumId(albumId);
     }
+
+    public void deleteMemory(Long albumId, Long memoryId) {
+        Memory memory = memoryRepository.findById(memoryId)
+                .orElseThrow(() -> new RuntimeException("Memory not found with id: " + memoryId));
+        if (!memory.getAlbum().getId().equals(albumId)) {
+            throw new RuntimeException("Memory does not belong to album with id: " + albumId);
+        }
+        memoryRepository.deleteById(memoryId);
+    }
 }

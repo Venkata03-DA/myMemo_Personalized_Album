@@ -27,4 +27,10 @@ public class MemoryController {
     public ResponseEntity<List<Memory>> getMemoriesByAlbum(@PathVariable Long albumId) {
         return ResponseEntity.ok(memoryService.getMemoriesByAlbumId(albumId));
     }
+
+    @DeleteMapping("/{memoryId}")
+    public ResponseEntity<Void> deleteMemory(@PathVariable Long albumId, @PathVariable Long memoryId) {
+        memoryService.deleteMemory(albumId, memoryId);
+        return ResponseEntity.noContent().build();
+    }
 }
