@@ -1,5 +1,5 @@
 """
-Reads key project files, builds a prompt, calls Google Gemini API,
+Reads key project files, builds a prompt, calls GitHub Copilot API,
 and writes the result to README.md.
 """
 
@@ -26,7 +26,8 @@ FILES_TO_READ = [
     "src/main/resources/static/index.html",
 ]
 
-MODEL   = "gemini-2.0-flash"
+API_URL = "https://api.githubcopilot.com/chat/completions"
+MODEL   = "gpt-4o-mini"
 
 
 def read_file_safe(path: str) -> str | None:
@@ -73,48 +74,57 @@ Rules:
 """
 
 
-def call_gemini(token: str, prompt: str) -> str:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={token}"
+def call_copilot(token: str, prompt: str) -> str:
     payload = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": "You are a professional technical writer."},
+            {"role": "user",   "content": prompt},
+        ],
+        "temperature": 0.3,
+        "max_tokens": 4096,
     }).encode("utf-8")
 
     req = urllib.request.Request(
-        url,
+        API_URL,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+            "Copilot-Integration-Id": "vscode-chat",
+            "Editor-Version": "vscode/1.95.0",
+        },
         method="POST",
     )
 
-    max_retries = 5
+    max_retries = 4
     for attempt in range(1, max_retries + 1):
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
-            return body["candidates"][0]["content"]["parts"][0]["text"]
+            return body["choices"][0]["message"]["content"]
         except urllib.error.HTTPError as exc:
             error_body = exc.read().decode("utf-8", errors="replace")
             if exc.code == 429 and attempt < max_retries:
-                wait = 30 * attempt   # 30s, 60s, 90s, 120s
+                wait = 30 * attempt
                 print(f"Rate limited (attempt {attempt}/{max_retries}). Waiting {wait}s...", file=sys.stderr)
                 time.sleep(wait)
             else:
-                print(f"HTTP {exc.code} from Gemini API: {error_body}", file=sys.stderr)
+                print(f"HTTP {exc.code} from Copilot API: {error_body}", file=sys.stderr)
                 sys.exit(1)
 
 
 def main() -> None:
-    token = os.environ.get("GEMINI_API_KEY")
+    token = os.environ.get("COPILOT_TOKEN")
     if not token:
-        print("GEMINI_API_KEY environment variable is not set.", file=sys.stderr)
+        print("COPILOT_TOKEN environment variable is not set.", file=sys.stderr)
         sys.exit(1)
 
     print("Reading project files...")
     context = build_context()
 
-    print("Calling Gemini API...")
-    readme_content = call_gemini(token, build_prompt(context))
+    print("Calling GitHub Copilot API...")
+    readme_content = call_copilot(token, build_prompt(context))
 
     with open("README.md", "w", encoding="utf-8") as fh:
         fh.write(readme_content.strip() + "\n")

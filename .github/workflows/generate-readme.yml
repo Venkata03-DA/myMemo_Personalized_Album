@@ -24,9 +24,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Generate README via Gemini API
+      - name: Generate README via GitHub Copilot API
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          COPILOT_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: python .github/scripts/generate_readme.py
 
       - name: Push branch and open PR
