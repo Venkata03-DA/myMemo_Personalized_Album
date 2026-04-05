@@ -1,0 +1,60 @@
+name: Generate README
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'        # prevent infinite loop if README branch is ever merged
+
+permissions:
+  contents: write          # push a new branch
+  pull-requests: write     # open a PR
+
+jobs:
+  generate-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate README via GitHub Models API
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python .github/scripts/generate_readme.py
+
+      - name: Push branch and open PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Nothing changed — no PR needed
+          git diff --quiet README.md && echo "README unchanged, skipping PR." && exit 0
+
+          BRANCH="auto-readme/run-${{ github.run_number }}"
+          git checkout -b "$BRANCH"
+          git add README.md
+          git commit -m "docs: auto-generate README"
+          git push origin "$BRANCH"
+
+          # Open a PR — gh CLI is pre-installed on ubuntu-latest
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "docs: auto-generated README update" \
+            --body "This PR was opened automatically by the **Generate README** workflow after a push to \`main\`.
+
+          **What to review:**
+          - Is the project description accurate?
+          - Are all API endpoints listed correctly?
+          - Is the setup guide complete?
+
+          Merge when you're happy with it, or push fixes to the \`$BRANCH\` branch."

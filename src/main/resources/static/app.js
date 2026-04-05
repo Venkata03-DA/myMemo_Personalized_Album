@@ -54,24 +54,44 @@ function createAlbumCard(album) {
     window.location.href = 'Album.html?id=' + album.id;
   });
 
-  const deleteBtn = document.createElement('button');
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.className = 'delete-btn';
-  deleteBtn.addEventListener('click', async function (e) {
+  // 3-dot menu
+  const menu = document.createElement('div');
+  menu.className = 'card-menu';
+
+  const trigger = document.createElement('button');
+  trigger.className = 'menu-trigger';
+  trigger.textContent = '⋮';
+  trigger.addEventListener('click', function (e) {
     e.stopPropagation();
-    if (!confirm('Delete album "' + album.title + '"? This cannot be undone.')) return;
-    try {
-      const res = await fetch(API_BASE + '/' + album.id, { method: 'DELETE' });
-      if (res.ok) {
-        await loadAlbums();
-      } else {
-        alert('Failed to delete album.');
-      }
-    } catch (err) {
-      console.error('Error deleting album:', err);
-    }
+    dropdown.classList.toggle('open');
   });
-  body.appendChild(deleteBtn);
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'menu-dropdown';
+
+  const deleteItem = document.createElement('button');
+  deleteItem.textContent = 'Delete';
+  deleteItem.addEventListener('click', function (e) {
+    e.stopPropagation();
+    dropdown.classList.remove('open');
+    showConfirm('Are you sure you want to delete "' + album.title + '"?', async function () {
+      try {
+        const res = await fetch(API_BASE + '/' + album.id, { method: 'DELETE' });
+        if (res.ok) {
+          await loadAlbums();
+        } else {
+          alert('Failed to delete album.');
+        }
+      } catch (err) {
+        console.error('Error deleting album:', err);
+      }
+    });
+  });
+
+  dropdown.appendChild(deleteItem);
+  menu.appendChild(trigger);
+  menu.appendChild(dropdown);
+  card.appendChild(menu);
 
   return card;
 }
@@ -127,6 +147,48 @@ function formatDate(dateStr) {
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+function showConfirm(message, onYes) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+
+  const box = document.createElement('div');
+  box.className = 'confirm-box';
+
+  const msg = document.createElement('p');
+  msg.textContent = message;
+
+  const actions = document.createElement('div');
+  actions.className = 'confirm-actions';
+
+  const yesBtn = document.createElement('button');
+  yesBtn.textContent = 'Yes';
+  yesBtn.className = 'confirm-yes';
+  yesBtn.addEventListener('click', function () {
+    document.body.removeChild(overlay);
+    onYes();
+  });
+
+  const noBtn = document.createElement('button');
+  noBtn.textContent = 'No';
+  noBtn.className = 'confirm-no';
+  noBtn.addEventListener('click', function () {
+    document.body.removeChild(overlay);
+  });
+
+  actions.appendChild(yesBtn);
+  actions.appendChild(noBtn);
+  box.appendChild(msg);
+  box.appendChild(actions);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+document.addEventListener('click', function () {
+  document.querySelectorAll('.menu-dropdown.open').forEach(function (d) {
+    d.classList.remove('open');
+  });
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 

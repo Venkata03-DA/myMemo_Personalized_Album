@@ -74,28 +74,49 @@ function createMemoryCard(memory) {
   const date = document.createElement('p');
   date.textContent = memory.memoryDate ? formatDate(memory.memoryDate) : 'No date';
 
-  const deleteBtn = document.createElement('button');
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.className = 'delete-btn';
-  deleteBtn.addEventListener('click', async function () {
-    if (!confirm('Delete this memory? This cannot be undone.')) return;
-    try {
-      const res = await fetch(API_MEMORIES + '/' + memory.id, { method: 'DELETE' });
-      if (res.ok) {
-        await loadMemories();
-      } else {
-        alert('Failed to delete memory.');
-      }
-    } catch (err) {
-      console.error('Error deleting memory:', err);
-    }
-  });
-
   body.appendChild(desc);
   body.appendChild(date);
-  body.appendChild(deleteBtn);
   card.appendChild(img);
   card.appendChild(body);
+
+  // 3-dot menu
+  const menu = document.createElement('div');
+  menu.className = 'card-menu';
+
+  const trigger = document.createElement('button');
+  trigger.className = 'menu-trigger';
+  trigger.textContent = '⋮';
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  });
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'menu-dropdown';
+
+  const deleteItem = document.createElement('button');
+  deleteItem.textContent = 'Delete';
+  deleteItem.addEventListener('click', function (e) {
+    e.stopPropagation();
+    dropdown.classList.remove('open');
+    showConfirm('Are you sure you want to delete this memory?', async function () {
+      try {
+        const res = await fetch(API_MEMORIES + '/' + memory.id, { method: 'DELETE' });
+        if (res.ok) {
+          await loadMemories();
+        } else {
+          alert('Failed to delete memory.');
+        }
+      } catch (err) {
+        console.error('Error deleting memory:', err);
+      }
+    });
+  });
+
+  dropdown.appendChild(deleteItem);
+  menu.appendChild(trigger);
+  menu.appendChild(dropdown);
+  card.appendChild(menu);
 
   return card;
 }
@@ -151,6 +172,48 @@ function formatDate(dateStr) {
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+function showConfirm(message, onYes) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+
+  const box = document.createElement('div');
+  box.className = 'confirm-box';
+
+  const msg = document.createElement('p');
+  msg.textContent = message;
+
+  const actions = document.createElement('div');
+  actions.className = 'confirm-actions';
+
+  const yesBtn = document.createElement('button');
+  yesBtn.textContent = 'Yes';
+  yesBtn.className = 'confirm-yes';
+  yesBtn.addEventListener('click', function () {
+    document.body.removeChild(overlay);
+    onYes();
+  });
+
+  const noBtn = document.createElement('button');
+  noBtn.textContent = 'No';
+  noBtn.className = 'confirm-no';
+  noBtn.addEventListener('click', function () {
+    document.body.removeChild(overlay);
+  });
+
+  actions.appendChild(yesBtn);
+  actions.appendChild(noBtn);
+  box.appendChild(msg);
+  box.appendChild(actions);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+document.addEventListener('click', function () {
+  document.querySelectorAll('.menu-dropdown.open').forEach(function (d) {
+    d.classList.remove('open');
+  });
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
