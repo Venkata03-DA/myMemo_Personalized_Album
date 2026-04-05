@@ -4,12 +4,18 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'README.md'        # prevent infinite loop if README branch is ever merged
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+
+# Cancel duplicate runs — prevents queued API calls on rapid pushes
+concurrency:
+  group: generate-readme-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
-  contents: write          # push a new branch
-  pull-requests: write     # open a PR
+  contents: write
+  pull-requests: write
 
 jobs:
   generate-readme:
@@ -24,9 +30,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Generate README via GitHub Copilot API
+      - name: Generate README via OpenRouter API
         env:
-          COPILOT_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python .github/scripts/generate_readme.py
 
       - name: Push branch and open PR

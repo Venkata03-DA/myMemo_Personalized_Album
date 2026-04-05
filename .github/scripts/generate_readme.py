@@ -1,80 +1,105 @@
 """
-Reads key project files, builds a prompt, calls GitHub Copilot API,
+Reads key project files, builds a lean prompt, calls OpenRouter API,
 and writes the result to README.md.
 """
 
 import os
+import re
 import json
 import sys
 import time
 import urllib.request
 import urllib.error
 
-# ── files to include as context ──────────────────────────────────────────────
-FILES_TO_READ = [
-    "pom.xml",
-    "src/main/resources/application.yaml",
-    "src/main/java/com/venkata/mymemo/MyMemoApplication.java",
-    "src/main/java/com/venkata/mymemo/entity/Album.java",
-    "src/main/java/com/venkata/mymemo/entity/Memory.java",
-    "src/main/java/com/venkata/mymemo/controller/AlbumController.java",
-    "src/main/java/com/venkata/mymemo/controller/MemoryController.java",
-    "src/main/java/com/venkata/mymemo/service/AlbumService.java",
-    "src/main/java/com/venkata/mymemo/service/MemoryService.java",
-    "src/main/java/com/venkata/mymemo/repository/AlbumRepository.java",
-    "src/main/java/com/venkata/mymemo/repository/MemoryRepository.java",
-    "src/main/resources/static/index.html",
-]
-
-API_URL = "https://api.githubcopilot.com/chat/completions"
-MODEL   = "gpt-4o-mini"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODEL   = "mistralai/mistral-7b-instruct:free"
 
 
-def read_file_safe(path: str) -> str | None:
-    """Return file contents or None if the file doesn't exist."""
+def read_file_safe(path: str) -> str:
     try:
         with open(path, encoding="utf-8") as fh:
             return fh.read()
     except FileNotFoundError:
-        return None
+        return ""
 
+
+# ── extractors: pull only what the README needs ──────────────────────────────
+
+def extract_pom_info(src: str) -> str:
+    artifact = re.search(r"<artifactId>([^<]+)</artifactId>", src)
+    java_ver = re.search(r"<java.version>([^<]+)</java.version>", src)
+    deps = re.findall(r"<artifactId>([^<]+)</artifactId>", src)
+    unique_deps = [d for d in dict.fromkeys(deps)
+                   if "spring" in d.lower() or d in ("postgresql", "h2")]
+    lines = []
+    if artifact:
+        lines.append(f"artifactId: {artifact.group(1)}")
+    if java_ver:
+        lines.append(f"java.version: {java_ver.group(1)}")
+    lines.append("key dependencies: " + ", ".join(unique_deps))
+    return "\n".join(lines)
+
+
+def extract_endpoints(src: str, filename: str) -> str:
+    lines = []
+    for line in src.splitlines():
+        s = line.strip()
+        if any(s.startswith(a) for a in (
+            "@RequestMapping", "@GetMapping", "@PostMapping",
+            "@PutMapping", "@PatchMapping", "@DeleteMapping",
+            "public ResponseEntity",
+        )):
+            lines.append(s)
+    return f"# {filename}\n" + "\n".join(lines)
+
+
+def extract_entity_fields(src: str, filename: str) -> str:
+    lines = []
+    for line in src.splitlines():
+        s = line.strip()
+        if re.match(r"(private|protected|public)\s+\S+\s+\w+", s):
+            lines.append(s)
+    return f"# {filename}\n" + "\n".join(lines)
+
+
+# ── build a compact context string ───────────────────────────────────────────
 
 def build_context() -> str:
-    lines = []
-    for rel_path in FILES_TO_READ:
-        content = read_file_safe(rel_path)
-        if content:
-            lines.append(f"### {rel_path}\n```\n{content}\n```")
-    return "\n\n".join(lines)
+    sections = []
+
+    pom = read_file_safe("pom.xml")
+    if pom:
+        sections.append("## pom.xml (summary)\n" + extract_pom_info(pom))
+
+    yaml = read_file_safe("src/main/resources/application.yaml")
+    if yaml:
+        sections.append("## application.yaml\n" + yaml.strip())
+
+    for name in ("AlbumController.java", "MemoryController.java"):
+        src = read_file_safe(f"src/main/java/com/venkata/mymemo/controller/{name}")
+        if src:
+            sections.append(extract_endpoints(src, name))
+
+    for name in ("Album.java", "Memory.java"):
+        src = read_file_safe(f"src/main/java/com/venkata/mymemo/entity/{name}")
+        if src:
+            sections.append(extract_entity_fields(src, name))
+
+    return "\n\n".join(sections)
 
 
 def build_prompt(context: str) -> str:
-    return f"""You are a technical writer. Analyze the following Spring Boot project files and generate a
-professional, well-structured README.md file in Markdown format.
-
-The README must include the following sections (use these exact headings):
-1. **Project Title & Description** — what the app does in 2-3 sentences
-2. **Tech Stack** — list frameworks, language version, database, build tool
-3. **Project Structure** — a brief overview of the main packages/layers
-4. **Getting Started** — prerequisites, how to clone, configure env vars, build, and run
-5. **API Endpoints** — a Markdown table for each resource (Albums, Memories) with Method, Path, Description
-6. **Frontend** — brief note on the static UI
-7. **Running Tests** — the Maven command to run tests
-8. **License** — based on what is found in the project
-
-Rules:
-- Use only the information present in the files below; do not invent details.
-- Use fenced code blocks for commands.
-- Keep the tone professional and concise.
-- Do NOT wrap the output in ```markdown fences — output raw Markdown only.
-
---- PROJECT FILES ---
-
-{context}
-"""
+    return (
+        "Generate a professional README.md for a Spring Boot project using ONLY the "
+        "information below. Include these sections: Project Title & Description, "
+        "Tech Stack, Project Structure, Getting Started (clone/env vars/build/run), "
+        "API Endpoints (Markdown table per resource), Frontend, Running Tests, License. "
+        "Use fenced code blocks for commands. Output raw Markdown only — no ```markdown wrapper.\n\n"
+        + context
+    )
 
 
-def call_copilot(token: str, prompt: str) -> str:
+def call_openrouter(token: str, prompt: str) -> str:
     payload = json.dumps({
         "model": MODEL,
         "messages": [
@@ -82,7 +107,7 @@ def call_copilot(token: str, prompt: str) -> str:
             {"role": "user",   "content": prompt},
         ],
         "temperature": 0.3,
-        "max_tokens": 4096,
+        "max_tokens": 2048,
     }).encode("utf-8")
 
     req = urllib.request.Request(
@@ -91,40 +116,40 @@ def call_copilot(token: str, prompt: str) -> str:
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
-            "Copilot-Integration-Id": "vscode-chat",
-            "Editor-Version": "vscode/1.95.0",
+            "HTTP-Referer": "https://github.com",
         },
         method="POST",
     )
 
-    max_retries = 4
+    max_retries = 3
     for attempt in range(1, max_retries + 1):
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            with urllib.request.urlopen(req, timeout=90) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
             return body["choices"][0]["message"]["content"]
         except urllib.error.HTTPError as exc:
             error_body = exc.read().decode("utf-8", errors="replace")
             if exc.code == 429 and attempt < max_retries:
-                wait = 30 * attempt
+                wait = 65
                 print(f"Rate limited (attempt {attempt}/{max_retries}). Waiting {wait}s...", file=sys.stderr)
                 time.sleep(wait)
             else:
-                print(f"HTTP {exc.code} from Copilot API: {error_body}", file=sys.stderr)
+                print(f"HTTP {exc.code} from OpenRouter API: {error_body}", file=sys.stderr)
                 sys.exit(1)
 
 
 def main() -> None:
-    token = os.environ.get("COPILOT_TOKEN")
+    token = os.environ.get("OPENROUTER_API_KEY")
     if not token:
-        print("COPILOT_TOKEN environment variable is not set.", file=sys.stderr)
+        print("OPENROUTER_API_KEY environment variable is not set.", file=sys.stderr)
         sys.exit(1)
 
-    print("Reading project files...")
+    print("Reading and compressing project files...")
     context = build_context()
+    print(f"Context size: {len(context)} chars")
 
-    print("Calling GitHub Copilot API...")
-    readme_content = call_copilot(token, build_prompt(context))
+    print("Calling OpenRouter API...")
+    readme_content = call_openrouter(token, build_prompt(context))
 
     with open("README.md", "w", encoding="utf-8") as fh:
         fh.write(readme_content.strip() + "\n")
