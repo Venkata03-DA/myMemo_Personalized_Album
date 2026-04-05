@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyMemo - Album Details</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <h1><a href="index.html">MyMemo</a></h1>
+    <p>Album Details</p>
+  </header>
+
+  <main>
+
+    <section id="album-details" class="album-details">
+      <img id="album-cover" src="" alt="Album Cover" />
+      <div class="album-info">
+        <h2 id="album-title">Loading...</h2>
+        <p id="album-date"></p>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <h2>Add a Memory</h2>
+      <form id="memory-form">
+        <div class="form-group">
+          <label for="imageUrl">Image URL</label>
+          <input type="url" id="imageUrl" placeholder="https://example.com/photo.jpg" />
+        </div>
+        <div class="form-group">
+          <label for="description">Description</label>
+          <input type="text" id="description" placeholder="What happened here?" required />
+        </div>
+        <div class="form-group">
+          <label for="memoryDate">Memory Date</label>
+          <input type="date" id="memoryDate" />
+        </div>
+        <button type="submit">Add Memory</button>
+      </form>
+    </section>
+
+    <section class="albums-section">
+      <h2>Memories</h2>
+      <div id="memory-container" class="album-grid"></div>
+    </section>
+
+  </main>
+
+  <script src="album.js"></script>
+</body>
+</html>
