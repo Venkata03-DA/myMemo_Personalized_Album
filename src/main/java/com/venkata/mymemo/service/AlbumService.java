@@ -1,39 +1,61 @@
 package com.venkata.mymemo.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.venkata.mymemo.entity.Album;
 import com.venkata.mymemo.repository.AlbumRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.List;
 
 @Service
 public class AlbumService {
 
-    private final AlbumRepository albumRepository; 
-    // This is a dependency on the AlbumRepository, which will be used to perform database operations related to albums
+    private final AlbumRepository albumRepository;
+    private final Cloudinary cloudinary;
 
-    public AlbumService(AlbumRepository albumRepository) {  
+    public AlbumService(
+            AlbumRepository albumRepository,
+            @Value("${cloudinary.cloud-name}") String cloudName,
+            @Value("${cloudinary.api-key}")    String apiKey,
+            @Value("${cloudinary.api-secret}") String apiSecret) {
         this.albumRepository = albumRepository;
-    }
-// And this is where the db query is written and repository jpa sees this and creates the query for us and we can use it in the controller to perform the operations.
-    public Album createAlbum(Album album) { // Method to create a new album
-        return albumRepository.save(album); // Save the album to the database and return the saved entity, which includes the generated ID and timestamps
+        this.cloudinary = new Cloudinary(ObjectUtils.asMap(
+                "cloud_name", cloudName,
+                "api_key",    apiKey,
+                "api_secret", apiSecret,
+                "secure",     true
+        ));
     }
 
-    public List<Album> getAllAlbums() { // Method to retrieve all albums from the database
+    public Album createAlbum(Album album) {
+        return albumRepository.save(album);
+    }
+
+    public List<Album> getAllAlbums() {
         return albumRepository.findAll();
     }
 
-    public Album getAlbumById(Long id) { // Method to retrieve a specific album by its unique identifier
+    public Album getAlbumById(Long id) {
         return albumRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Album not found with id: " + id)); 
+                .orElseThrow(() -> new RuntimeException("Album not found with id: " + id));
     }
 
     public void deleteAlbum(Long id) {
-        if (!albumRepository.existsById(id)) {
-            throw new RuntimeException("Album not found with id: " + id);
+        Album album = albumRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Album not found with id: " + id));
+
+        if (album.getCoverImagePublicId() != null) {
+            try {
+                cloudinary.uploader().destroy(album.getCoverImagePublicId(), ObjectUtils.emptyMap());
+            } catch (IOException e) {
+                // Log but don't block deletion if Cloudinary call fails
+                System.err.println("Failed to delete image from Cloudinary: " + e.getMessage());
+            }
         }
+
         albumRepository.deleteById(id);
     }
 }
-// In future we can add more methods like editing the album option where we can update the title, cover image and event date of the album.

@@ -121,37 +121,58 @@ function createMemoryCard(memory) {
   return card;
 }
 
+// ── Cloudinary upload helper ─────────────────────────────────────────────────
+
+async function uploadToCloudinary(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch('/api/cloudinary/upload', {
+    method: 'POST',
+    body:   formData
+  });
+
+  if (!res.ok) throw new Error('Image upload failed');
+  return await res.json(); // { url, publicId }
+}
+
 // ── Handle memory form submission ─────────────────────────────────────────────
 
 document.getElementById('memory-form').addEventListener('submit', async function (event) {
   event.preventDefault();
 
-  const fileInput = document.getElementById('image');
-  const file = fileInput.files[0];
+  const fileInput   = document.getElementById('image');
+  const file        = fileInput.files[0];
   const description = document.getElementById('description').value.trim();
-  const memoryDate = document.getElementById('memoryDate').value;
+  const memoryDate  = document.getElementById('memoryDate').value;
 
-  let imageUrl = null;
+  let imageUrl      = null;
+  let imagePublicId = null;
 
   if (file) {
-    imageUrl = await new Promise(function (resolve) {
-      const reader = new FileReader();
-      reader.onload = function (e) { resolve(e.target.result); };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const uploaded = await uploadToCloudinary(file);
+      imageUrl       = uploaded.url;
+      imagePublicId  = uploaded.publicId;
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      alert('Image upload failed. Please try again.');
+      return;
+    }
   }
 
   const payload = {
-    imageUrl: imageUrl,
-    description: description,
-    memoryDate: memoryDate || null
+    imageUrl:     imageUrl,
+    imagePublicId: imagePublicId,
+    description:  description,
+    memoryDate:   memoryDate || null
   };
 
   try {
     const response = await fetch(API_MEMORIES, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body:    JSON.stringify(payload)
     });
 
     if (response.ok) {

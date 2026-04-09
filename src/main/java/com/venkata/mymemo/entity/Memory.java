@@ -24,6 +24,9 @@ public class Memory {
     @Column(name = "image_url")
     private String imageUrl;
 
+    @Column(name = "image_public_id")
+    private String imagePublicId; // Cloudinary public_id for deletion
+
     @Column(nullable = false)
     private String description;
 
@@ -48,6 +51,9 @@ public class Memory {
 
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public String getImagePublicId() { return imagePublicId; }
+    public void setImagePublicId(String imagePublicId) { this.imagePublicId = imagePublicId; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

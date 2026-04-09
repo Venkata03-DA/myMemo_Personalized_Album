@@ -96,37 +96,58 @@ function createAlbumCard(album) {
   return card;
 }
 
+// ── Cloudinary upload helper ─────────────────────────────────────────────────
+
+async function uploadToCloudinary(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch('/api/cloudinary/upload', {
+    method: 'POST',
+    body:   formData
+  });
+
+  if (!res.ok) throw new Error('Image upload failed');
+  return await res.json(); // { url, publicId }
+}
+
 // ── Handle album form submission ──────────────────────────────────────────────
 
 document.getElementById('album-form').addEventListener('submit', async function (event) {
   event.preventDefault();
 
-  const title = document.getElementById('title').value.trim();
+  const title     = document.getElementById('title').value.trim();
   const eventDate = document.getElementById('eventDate').value;
   const fileInput = document.getElementById('coverImage');
-  const file = fileInput.files[0];
+  const file      = fileInput.files[0];
 
-  let coverImageUrl = null;
+  let coverImageUrl      = null;
+  let coverImagePublicId = null;
 
   if (file) {
-    coverImageUrl = await new Promise(function (resolve) {
-      const reader = new FileReader();
-      reader.onload = function (e) { resolve(e.target.result); };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const uploaded     = await uploadToCloudinary(file);
+      coverImageUrl      = uploaded.url;
+      coverImagePublicId = uploaded.publicId;
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      alert('Image upload failed. Please try again.');
+      return;
+    }
   }
 
   const payload = {
-    title: title,
-    coverImageUrl: coverImageUrl,
-    eventDate: eventDate || null
+    title:              title,
+    coverImageUrl:      coverImageUrl,
+    coverImagePublicId: coverImagePublicId,
+    eventDate:          eventDate || null
   };
 
   try {
     const response = await fetch(API_BASE, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body:    JSON.stringify(payload)
     });
 
     if (response.ok) {

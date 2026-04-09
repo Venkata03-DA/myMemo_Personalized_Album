@@ -25,6 +25,9 @@ public class Album {
 	@Column(name = "cover_image_url")
 	private String coverImageUrl; // URL of the album's cover image
 
+	@Column(name = "cover_image_public_id")
+	private String coverImagePublicId; // Cloudinary public_id for deletion
+
 	@Column(name = "event_date")
 	private LocalDate eventDate; // Date of the event associated with the album
 
@@ -65,6 +68,14 @@ public class Album {
 
 	public void setCoverImageUrl(String coverImageUrl) { // Setter method for the album's cover image URL
 		this.coverImageUrl = coverImageUrl; // Set the cover image URL of the album
+	}
+
+	public String getCoverImagePublicId() {
+		return coverImagePublicId;
+	}
+
+	public void setCoverImagePublicId(String coverImagePublicId) {
+		this.coverImagePublicId = coverImagePublicId;
 	}
 
 	public LocalDate getEventDate() { //	 Getter method for the album's event date
