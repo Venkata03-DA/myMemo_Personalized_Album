@@ -12,13 +12,13 @@ import java.util.List;
 @RequestMapping("/api/albums")
 public class AlbumController {
 
-    private final AlbumService albumService;
+    private final AlbumService albumService; 
 
     public AlbumController(AlbumService albumService) {
         this.albumService = albumService;
     }
 
-    @PostMapping
+    @PostMapping // Create a new album
     public ResponseEntity<Album> createAlbum(@RequestBody Album album) {
         return ResponseEntity.status(HttpStatus.CREATED).body(albumService.createAlbum(album));
     }
