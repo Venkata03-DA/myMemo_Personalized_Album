@@ -39,12 +39,10 @@ public class Album {
     	if (createdAt == null) { // Set createdAt to the current time if it's not already set
         	createdAt = Instant.now();
     }
-    	if (title == null || title.trim().isEmpty()) { // Set title to an empty string if it's null or empty
-    		title = "";
-		}
-
-    }
-
+    	if (title == null || title.trim().isEmpty()) { // Set title to a default value if it's null or blank
+    		title = "Untitled Album";
+    	}
+	}
 
 	public Long getId() { // Getter method for the album's unique identifier
 		return id;

@@ -7,9 +7,12 @@ import com.venkata.mymemo.repository.AlbumRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.List;
 
+@Slf4j
 @Service
 public class AlbumService {
 
@@ -31,31 +34,49 @@ public class AlbumService {
     }
 
     public Album createAlbum(Album album) {
-        return albumRepository.save(album);
+        log.info("Creating album: {}", album.getTitle());
+        Album saved = albumRepository.save(album);
+        log.info("Album created successfully with id: {}", saved.getId());
+        return saved;
     }
 
     public List<Album> getAllAlbums() {
-        return albumRepository.findAll();
+        log.info("Fetching all albums");
+        List<Album> albums = albumRepository.findAll();
+        log.info("Found {} albums", albums.size());
+        return albums;
     }
 
     public Album getAlbumById(Long id) {
-        return albumRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Album not found with id: " + id));
+        log.info("Fetching album with id: {}", id);
+        Album album = albumRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Album not found with id: {}", id);
+                    return new RuntimeException("Album not found with id: " + id);
+                });
+        log.info("Found album: {}", album.getTitle());
+        return album;
     }
 
     public void deleteAlbum(Long id) {
+        log.info("Deleting album with id: {}", id);
         Album album = albumRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Album not found with id: " + id));
+                .orElseThrow(() -> {
+                    log.error("Album not found with id: {}", id);
+                    return new RuntimeException("Album not found with id: " + id);
+                });
 
         if (album.getCoverImagePublicId() != null) {
+            log.info("Deleting cover image from Cloudinary: {}", album.getCoverImagePublicId());
             try {
                 cloudinary.uploader().destroy(album.getCoverImagePublicId(), ObjectUtils.emptyMap());
+                log.info("Cover image deleted from Cloudinary successfully");
             } catch (IOException e) {
-                // Log but don't block deletion if Cloudinary call fails
-                System.err.println("Failed to delete image from Cloudinary: " + e.getMessage());
+                log.error("Failed to delete image from Cloudinary: {}", e.getMessage(), e);
             }
         }
 
         albumRepository.deleteById(id);
+        log.info("Album deleted successfully with id: {}", id);
     }
 }
